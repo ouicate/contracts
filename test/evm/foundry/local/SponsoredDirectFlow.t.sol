@@ -400,6 +400,22 @@ contract CCTPDirectFlowTest is BaseSimulatorTest {
         assertTrue(dstPeriphery.usedNonces(quote.nonce), "dst nonce used");
     }
 
+    function testDirectDeposit_ActivatesNewRecipient() public {
+        address newRecipient = makeAddr("newRecipient");
+        SponsoredCCTPInterface.SponsoredCCTPQuote memory quote = _createDirectQuote(keccak256("cctp-direct-activate"));
+        quote.finalRecipient = newRecipient.toBytes32();
+        bytes memory sig = _signQuote(quote, signerPk);
+
+        assertFalse(hyperCore.coreUserExists(newRecipient), "recipient should start unactivated");
+        deal(address(usdc), address(donationBox), 10e6);
+
+        vm.prank(user);
+        srcPeriphery.depositForBurn(quote, sig);
+
+        assertEq(usdc.balanceOf(address(donationBox)), 9_989_999, "activation sponsorship not used");
+        assertTrue(dstPeriphery.usedNonces(quote.nonce), "dst nonce used");
+    }
+
     function testDirectDeposit_EmitsEvent() public {
         SponsoredCCTPInterface.SponsoredCCTPQuote memory quote = _createDirectQuote(keccak256("cctp-direct-event"));
         bytes memory sig = _signQuote(quote, signerPk);
