@@ -128,6 +128,39 @@ contract HyperCoreFlowExecutorTest is BaseSimulatorTest {
         handler.callExecuteSimpleTransferFlow(params);
     }
 
+    function testExecuteSimpleTransferFlow_DirectSponsored_ActivatesNewUser() public {
+        address unactivated = makeAddr("unactivated");
+        address directCaller = makeAddr("directCaller");
+        uint256 amountIn = 1_000e6;
+        uint256 extraFees = 50e6;
+
+        address bridgeAddr = HyperCoreLib.toAssetBridgeAddress(CORE_INDEX);
+        hyperCore.forceSpot(bridgeAddr, CORE_INDEX, uint64(10_000_000e8));
+
+        deal(address(token), address(handler), amountIn, true);
+        deal(address(token), address(donationBox), 100e6, true);
+
+        handler.grantRole(handler.DIRECT_CALLER_ROLE(), directCaller);
+
+        CommonFlowParams memory params = CommonFlowParams({
+            amountInEVM: amountIn,
+            quoteNonce: keccak256("quote-direct"),
+            finalRecipient: unactivated,
+            finalToken: address(token),
+            destinationDex: HyperCoreLib.CORE_SPOT_DEX_ID,
+            maxBpsToSponsor: 500,
+            extraFeesIncurred: extraFees,
+            accountCreationMode: AccountCreationMode.Standard
+        });
+
+        assertFalse(hyperCore.coreUserExists(unactivated), "recipient should start unactivated");
+
+        vm.prank(directCaller);
+        handler.callExecuteSimpleTransferFlow(params);
+
+        assertTrue(hyperCore.coreUserExists(unactivated), "recipient should be activated");
+    }
+
     function testExecuteSimpleTransferFlow_Unsponsored_NotActivated_FallsBackToEVM() public {
         // Make recipient not activated
         address unactivated = makeAddr("unactivated");

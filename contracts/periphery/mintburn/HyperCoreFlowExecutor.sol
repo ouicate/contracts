@@ -485,6 +485,17 @@ contract HyperCoreFlowExecutor is AccessControlUpgradeable, AuthorizedFundedFlow
         return keccak256(abi.encodePacked(address(this), finalToken));
     }
 
+    function _activateSponsoredDirectFlowUser(
+        bytes32 quoteNonce,
+        address finalRecipient,
+        address fundingToken
+    ) internal {
+        // Same-chain direct flows execute src transfer and dst handling in one tx, so there is no bot window to
+        // pre-activate the recipient.
+        if (!hasRole(DIRECT_CALLER_ROLE, msg.sender)) revert AccountNotActivatedError(finalRecipient);
+        _activateUserAccount(quoteNonce, finalRecipient, fundingToken);
+    }
+
     /**************************************
      *            FLOW FUNCTIONS          *
      **************************************/
@@ -524,7 +535,7 @@ contract HyperCoreFlowExecutor is AccessControlUpgradeable, AuthorizedFundedFlow
 
             // Standard, sponsored
             if (isStandard && params.maxBpsToSponsor > 0) {
-                revert AccountNotActivatedError(params.finalRecipient);
+                _activateSponsoredDirectFlowUser(params.quoteNonce, params.finalRecipient, finalToken);
             }
 
             // Standard, non-sponsored OR
@@ -640,7 +651,7 @@ contract HyperCoreFlowExecutor is AccessControlUpgradeable, AuthorizedFundedFlow
 
             // Standard, sponsored
             if (isStandard && params.maxBpsToSponsor > 0) {
-                revert AccountNotActivatedError(params.finalRecipient);
+                _activateSponsoredDirectFlowUser(params.quoteNonce, params.finalRecipient, initialToken);
             }
 
             // Standard, non-sponsored OR
@@ -944,6 +955,10 @@ contract HyperCoreFlowExecutor is AccessControlUpgradeable, AuthorizedFundedFlow
         address finalRecipient,
         address fundingToken
     ) external onlyRole(PERMISSIONED_BOT_ROLE) {
+        _activateUserAccount(quoteNonce, finalRecipient, fundingToken);
+    }
+
+    function _activateUserAccount(bytes32 quoteNonce, address finalRecipient, address fundingToken) internal {
         CoreTokenInfo memory coreTokenInfo = _getExistingCoreTokenInfo(fundingToken);
         bool coreUserExists = HyperCoreLib.coreUserExists(finalRecipient);
         require(!coreUserExists, "Can't fund account activation for existing user");
