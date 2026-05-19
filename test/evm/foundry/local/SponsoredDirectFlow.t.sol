@@ -407,11 +407,12 @@ contract CCTPDirectFlowTest is BaseSimulatorTest {
         bytes memory sig = _signQuote(quote, signerPk);
 
         assertFalse(hyperCore.coreUserExists(newRecipient), "recipient should start unactivated");
+        deal(address(usdc), address(donationBox), 10e6);
 
         vm.prank(user);
         srcPeriphery.depositForBurn(quote, sig);
 
-        assertTrue(hyperCore.coreUserExists(newRecipient), "recipient should be activated");
+        assertEq(usdc.balanceOf(address(donationBox)), 8_999_999, "activation sponsorship not used");
         assertTrue(dstPeriphery.usedNonces(quote.nonce), "dst nonce used");
     }
 

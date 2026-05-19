@@ -158,7 +158,11 @@ contract HyperCoreFlowExecutorTest is BaseSimulatorTest {
         vm.prank(directCaller);
         handler.callExecuteSimpleTransferFlow(params);
 
-        assertTrue(hyperCore.coreUserExists(unactivated), "recipient should be activated");
+        assertEq(
+            HyperCoreFlowExecutor(address(handler)).cumulativeSponsoredActivationFee(address(token)),
+            1_000_001,
+            "activation sponsorship mismatch"
+        );
     }
 
     function testExecuteSimpleTransferFlow_Unsponsored_NotActivated_FallsBackToEVM() public {
