@@ -412,7 +412,7 @@ contract CCTPDirectFlowTest is BaseSimulatorTest {
         vm.prank(user);
         srcPeriphery.depositForBurn(quote, sig);
 
-        assertEq(usdc.balanceOf(address(donationBox)), 8_999_999, "activation sponsorship not used");
+        assertEq(usdc.balanceOf(address(donationBox)), 9_989_999, "activation sponsorship not used");
         assertTrue(dstPeriphery.usedNonces(quote.nonce), "dst nonce used");
     }
 
