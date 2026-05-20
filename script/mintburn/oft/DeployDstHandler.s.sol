@@ -73,6 +73,10 @@ contract DeployDstOFTHandler is Script, Test, DeploymentUtils, DstHandlerConfigL
         // _configureCoreTokenInfo(tokenName, address(dstOFTHandler));
         // Note: this sometimes sends way too many transactions so you might want to comment it when deploying
         _configureAuthorizedPeripheries(address(dstOFTHandler), deployerPrivateKey);
+        address sameChainSrcPeriphery = _getOptionalAddress("src_periphery");
+        if (sameChainSrcPeriphery != address(0)) {
+            assertTrue(dstOFTHandler.hasRole(dstOFTHandler.DIRECT_CALLER_ROLE(), sameChainSrcPeriphery));
+        }
     }
 
     /// @notice Returns a default zero address if not present in config.

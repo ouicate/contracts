@@ -57,10 +57,12 @@ abstract contract DstHandlerConfigLib is Config {
 
         for (uint256 i = 0; i < chainIdList.length; i++) {
             uint256 srcChainId = chainIdList[i];
+            address srcPeriphery = config.get(srcChainId, "src_periphery").toAddress();
             if (srcChainId == dstChainId) {
+                _configureDirectCallerRole(handler, srcPeriphery, configurerPrivateKey);
                 continue;
             }
-            address srcPeriphery = config.get(srcChainId, "src_periphery").toAddress();
+
             address oftMessenger = config.get(srcChainId, "oft_messenger").toAddress();
             if (srcPeriphery == address(0) || oftMessenger == address(0)) {
                 console.log(
@@ -95,5 +97,24 @@ abstract contract DstHandlerConfigLib is Config {
                 vm.stopBroadcast();
             }
         }
+    }
+
+    function _configureDirectCallerRole(
+        DstOFTHandler handler,
+        address srcPeriphery,
+        uint256 configurerPrivateKey
+    ) internal {
+        if (srcPeriphery == address(0)) {
+            console.log("Skipping DIRECT_CALLER_ROLE grant: same-chain src_periphery not set");
+            return;
+        }
+        if (handler.hasRole(handler.DIRECT_CALLER_ROLE(), srcPeriphery)) {
+            return;
+        }
+
+        console.log("Granting DIRECT_CALLER_ROLE to same-chain src periphery", srcPeriphery);
+        vm.startBroadcast(configurerPrivateKey);
+        handler.grantRole(handler.DIRECT_CALLER_ROLE(), srcPeriphery);
+        vm.stopBroadcast();
     }
 }

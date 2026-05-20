@@ -2,9 +2,11 @@
 pragma solidity ^0.8.0;
 
 import { console } from "forge-std/console.sol";
+import { Variable, TypeKind } from "forge-std/LibVariable.sol";
 import { DeploymentUtils } from "../../utils/DeploymentUtils.sol";
 
 import { SponsoredCCTPSrcPeriphery } from "../../../contracts/periphery/mintburn/sponsored-cctp/SponsoredCCTPSrcPeriphery.sol";
+import { SponsoredCCTPDstPeriphery } from "../../../contracts/periphery/mintburn/sponsored-cctp/SponsoredCCTPDstPeriphery.sol";
 
 // How to run:
 // 1. source .env (needs MNEMONIC="x x x ... x")
@@ -35,6 +37,15 @@ contract DeploySponsoredCCTPSrcPeriphery is DeploymentUtils {
 
         console.log("SponsoredCCTPSrcPeriphery deployed to:", address(sponsoredCCTPSrcPeriphery));
 
+        address dstPeripheryAddress = _getOptionalAddress("sponsoredCCTPDstPeriphery");
+        if (dstPeripheryAddress != address(0)) {
+            SponsoredCCTPDstPeriphery dstPeriphery = SponsoredCCTPDstPeriphery(payable(dstPeripheryAddress));
+            if (!dstPeriphery.hasRole(dstPeriphery.DIRECT_CALLER_ROLE(), address(sponsoredCCTPSrcPeriphery))) {
+                dstPeriphery.grantRole(dstPeriphery.DIRECT_CALLER_ROLE(), address(sponsoredCCTPSrcPeriphery));
+                console.log("Granted DIRECT_CALLER_ROLE on dst periphery:", dstPeripheryAddress);
+            }
+        }
+
         vm.stopBroadcast();
 
         config.set("sponsoredCCTPSrcPeriphery", address(sponsoredCCTPSrcPeriphery));
@@ -44,5 +55,15 @@ contract DeploySponsoredCCTPSrcPeriphery is DeploymentUtils {
         assertEq(sponsoredCCTPSrcPeriphery.sourceDomain(), sourceDomain);
         assertEq(sponsoredCCTPSrcPeriphery.signer(), deployer);
         assertEq(sponsoredCCTPSrcPeriphery.owner(), deployer);
+        if (dstPeripheryAddress != address(0)) {
+            SponsoredCCTPDstPeriphery dstPeriphery = SponsoredCCTPDstPeriphery(payable(dstPeripheryAddress));
+            assertTrue(dstPeriphery.hasRole(dstPeriphery.DIRECT_CALLER_ROLE(), address(sponsoredCCTPSrcPeriphery)));
+        }
+    }
+
+    function _getOptionalAddress(string memory key) internal view returns (address) {
+        Variable memory v = config.get(key);
+        if (v.ty.kind == TypeKind.None) return address(0);
+        return v.toAddress();
     }
 }
