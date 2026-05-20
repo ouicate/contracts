@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { console } from "forge-std/console.sol";
+import { Variable, TypeKind } from "forge-std/LibVariable.sol";
 
 import { DeploymentUtils } from "../../utils/DeploymentUtils.sol";
 import { DonationBox } from "../../../contracts/chain-adapters/DonationBox.sol";
@@ -50,6 +51,15 @@ contract DeploySponsoredCCTPDstPeriphery is DeploymentUtils {
 
         console.log("DonationBox WITHDRAWER_ROLE granted to:", address(sponsoredCCTPDstPeriphery));
 
+        address srcPeriphery = _getOptionalAddress("sponsoredCCTPSrcPeriphery");
+        if (
+            srcPeriphery != address(0) &&
+            !sponsoredCCTPDstPeriphery.hasRole(sponsoredCCTPDstPeriphery.DIRECT_CALLER_ROLE(), srcPeriphery)
+        ) {
+            sponsoredCCTPDstPeriphery.grantRole(sponsoredCCTPDstPeriphery.DIRECT_CALLER_ROLE(), srcPeriphery);
+            console.log("Granted DIRECT_CALLER_ROLE to same-chain src periphery:", srcPeriphery);
+        }
+
         vm.stopBroadcast();
 
         config.set("sponsoredCCTPDstPeriphery", address(sponsoredCCTPDstPeriphery));
@@ -59,5 +69,14 @@ contract DeploySponsoredCCTPDstPeriphery is DeploymentUtils {
         assertEq(sponsoredCCTPDstPeriphery.baseToken(), baseToken);
         assertEq(sponsoredCCTPDstPeriphery.signer(), deployer);
         assertTrue(donationBox.hasRole(donationBox.WITHDRAWER_ROLE(), address(sponsoredCCTPDstPeriphery)));
+        if (srcPeriphery != address(0)) {
+            assertTrue(sponsoredCCTPDstPeriphery.hasRole(sponsoredCCTPDstPeriphery.DIRECT_CALLER_ROLE(), srcPeriphery));
+        }
+    }
+
+    function _getOptionalAddress(string memory key) internal view returns (address) {
+        Variable memory v = config.get(key);
+        if (v.ty.kind == TypeKind.None) return address(0);
+        return v.toAddress();
     }
 }

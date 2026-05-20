@@ -4,9 +4,11 @@ pragma solidity ^0.8.0;
 import { Script } from "forge-std/Script.sol";
 import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
+import { Variable, TypeKind } from "forge-std/LibVariable.sol";
 
 import { DeploymentUtils } from "./../../utils/DeploymentUtils.sol";
 import { SponsoredOFTSrcPeriphery } from "../../../contracts/periphery/mintburn/sponsored-oft/SponsoredOFTSrcPeriphery.sol";
+import { DstOFTHandler } from "../../../contracts/periphery/mintburn/sponsored-oft/DstOFTHandler.sol";
 import { IOAppCore } from "../../../contracts/interfaces/IOFT.sol";
 
 /*
@@ -124,6 +126,7 @@ contract DepoySrcOFTPeriphery is Script, Test, DeploymentUtils {
             console.log("Ownership retained by deployer");
         }
 
+        _grantDirectCallerRoleIfConfigured(srcOftPeriphery);
         vm.stopBroadcast();
         return srcOftPeriphery;
     }
@@ -147,6 +150,12 @@ contract DepoySrcOFTPeriphery is Script, Test, DeploymentUtils {
 
         // Persist the deployment address under this chain in TOML
         config.set("src_periphery", address(srcOftPeriphery));
+
+        address dstHandlerAddress = _getOptionalAddress("dst_handler");
+        if (dstHandlerAddress != address(0)) {
+            DstOFTHandler dstHandler = DstOFTHandler(payable(dstHandlerAddress));
+            assertTrue(dstHandler.hasRole(dstHandler.DIRECT_CALLER_ROLE(), address(srcOftPeriphery)));
+        }
     }
 
     function _resolveOwnership(
@@ -166,5 +175,22 @@ contract DepoySrcOFTPeriphery is Script, Test, DeploymentUtils {
         }
 
         return (OwnershipInstruction.Transfer, config.finalOwner);
+    }
+
+    function _grantDirectCallerRoleIfConfigured(SponsoredOFTSrcPeriphery srcOftPeriphery) internal {
+        address dstHandlerAddress = _getOptionalAddress("dst_handler");
+        if (dstHandlerAddress == address(0)) return;
+
+        DstOFTHandler dstHandler = DstOFTHandler(payable(dstHandlerAddress));
+        if (dstHandler.hasRole(dstHandler.DIRECT_CALLER_ROLE(), address(srcOftPeriphery))) return;
+
+        dstHandler.grantRole(dstHandler.DIRECT_CALLER_ROLE(), address(srcOftPeriphery));
+        console.log("Granted DIRECT_CALLER_ROLE on dst handler:", dstHandlerAddress);
+    }
+
+    function _getOptionalAddress(string memory key) internal view returns (address) {
+        Variable memory v = config.get(key);
+        if (v.ty.kind == TypeKind.None) return address(0);
+        return v.toAddress();
     }
 }
